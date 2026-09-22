@@ -1,3 +1,4 @@
+```mermaid
 erDiagram
     %% Tầng Supertype (PERSON)
     PERSON {
