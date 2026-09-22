@@ -1,121 +1,129 @@
 ```mermaid
 erDiagram
-    %% Tầng Supertype (PERSON)
+    PERSON ||--o| OWNER : "overlapping ISA"
+    PERSON ||--o| AGENT : "overlapping ISA"
+    PERSON ||--o| TENANT : "overlapping ISA"
+
     PERSON {
         INT PersonID PK
-        VARCHAR(100) FullName "NOT NULL"
-        VARCHAR(20) Phone "NULL"
-        VARCHAR(100) Email "NULL"
+        VARCHAR FullName
+        VARCHAR Phone
+        VARCHAR Email
     }
-    
     OWNER {
-        INT PersonID PK "FK -> PERSON.PersonID"
-        VARCHAR(255) Address "NOT NULL"
+        INT PersonID PK, FK
+        VARCHAR Address
     }
-    
-    TENANT {
-        INT PersonID PK "FK -> PERSON.PersonID"
-        VARCHAR(20) IDCardNumber "UNIQUE NOT NULL"
-    }
-    
     AGENT {
-        INT PersonID PK "FK -> PERSON.PersonID"
-        DECIMAL(5_2) CommissionRate "NOT NULL"
+        INT PersonID PK, FK
+        DECIMAL CommissionRate
+    }
+    TENANT {
+        INT PersonID PK, FK
+        VARCHAR IDCardNumber
     }
 
-    PERSON ||--o| OWNER : "ISA (disjoint, total)"
-    PERSON ||--o| TENANT : "ISA (disjoint, total)"
-    PERSON ||--o| AGENT : "ISA (disjoint, total)"
+    OWNER ||--o{ PROPERTY : "owns"
+    AGENT |o--o{ PROPERTY : "manages"
+    PROPERTY ||--|| RESIDENTIAL_PROPERTY : "total disjoint ISA"
+    PROPERTY ||--|| COMMERCIAL_PROPERTY : "total disjoint ISA"
 
-    %% Tầng Bất động sản (PROPERTY)
     PROPERTY {
         INT PropertyID PK
-        VARCHAR(100) Title "NOT NULL"
-        VARCHAR(255) Address "NOT NULL"
-        VARCHAR(20) PropertyType "CHECK(Residential, Commercial)"
-        VARCHAR(50) ListingType
-        DECIMAL(15_2) Price "NOT NULL"
-        VARCHAR(20) Status "CHECK(Available, Leased, Maintenance)"
-        INT OwnerID FK "-> OWNER.PersonID"
-        INT AgentID FK "-> AGENT.PersonID"
+        VARCHAR Title
+        VARCHAR Address
+        VARCHAR ListingType "Rent or Sale"
+        DECIMAL Price
+        VARCHAR Status
+        INT OwnerID FK
+        INT AgentID FK "optional"
     }
-    
     RESIDENTIAL_PROPERTY {
-        INT PropertyID PK "FK -> PROPERTY.PropertyID"
-        INT Bedrooms 
-        INT Bathrooms 
-        DECIMAL(10_2) Area 
-        VARCHAR(50) FurnishedStatus 
+        INT PropertyID PK, FK
+        INT Bedrooms
+        INT Bathrooms
+        VARCHAR FurnishedStatus
     }
-    
     COMMERCIAL_PROPERTY {
-        INT PropertyID PK "FK -> PROPERTY.PropertyID"
-        VARCHAR(50) BusinessType 
-        DECIMAL(10_2) FloorArea 
-        INT ParkingSpaces 
+        INT PropertyID PK, FK
+        VARCHAR BusinessType
+        DECIMAL FloorArea
+        INT ParkingSpaces
     }
 
-    PROPERTY ||--o| RESIDENTIAL_PROPERTY : "ISA (disjoint, partial)"
-    PROPERTY ||--o| COMMERCIAL_PROPERTY : "ISA (disjoint, partial)"
-
-    %% Các quan hệ cốt lõi
-    OWNER ||--o{ PROPERTY : "1:N mandatory (OWNS)"
-    AGENT ||--o{ PROPERTY : "1:N mandatory (MANAGES)"
-
+    PROPERTY ||--o{ PROPERTY_IMAGE : "has"
     PROPERTY_IMAGE {
         INT ImageID PK
-        VARCHAR(255) ImageURL "NOT NULL"
-        VARCHAR(100) Caption 
-        BOOLEAN IsPrimary "DEFAULT FALSE"
-        DATE UploadedDate "DEFAULT CURRENT_DATE"
-        INT PropertyID FK "-> PROPERTY.PropertyID"
+        VARCHAR ImageURL
+        VARCHAR Caption
+        BOOLEAN IsPrimary "max 1 per property"
+        DATE UploadedDate
+        INT PropertyID FK
     }
-    PROPERTY ||--o{ PROPERTY_IMAGE : "1:N mandatory (HAS)"
 
+    PROPERTY ||--o{ VIEWING : "viewed in"
+    PERSON ||--o{ VIEWING : "books"
+    AGENT ||--o{ VIEWING : "handles"
     VIEWING {
         INT ViewingID PK
-        DATE ViewingDate "NOT NULL"
-        TIME ViewingTime "NOT NULL"
-        VARCHAR(20) Status "CHECK(Pending, Completed, Cancelled)"
-        TEXT Notes 
-        INT PropertyID FK "-> PROPERTY.PropertyID"
-        INT TenantID FK "-> TENANT.PersonID"
-        INT AgentID FK "-> AGENT.PersonID"
+        DATE ViewingDate
+        TIME ViewingTime
+        VARCHAR Status
+        TEXT Notes
+        INT PropertyID FK
+        INT ViewerID FK "-> PERSON"
+        INT AgentID FK
     }
-    PROPERTY ||--o{ VIEWING : "1:N optional (VIEWED_IN)"
-    TENANT ||--o{ VIEWING : "1:N mandatory (BOOKS)"
-    AGENT ||--o{ VIEWING : "1:N mandatory (HANDLES)"
 
+    PROPERTY ||--o{ LEASE : "leased via"
+    TENANT ||--o{ LEASE : "signs"
+    AGENT |o--o{ LEASE : "closed by (optional)"
     LEASE {
         INT LeaseID PK
-        DATE StartDate "NOT NULL"
-        DATE EndDate "NOT NULL"
-        DECIMAL(15_2) MonthlyRent "NOT NULL"
-        DECIMAL(15_2) DepositAmount "NOT NULL"
-        VARCHAR(20) Status "CHECK(Active, Terminated)"
-        INT PropertyID FK "-> PROPERTY.PropertyID"
-        INT TenantID FK "-> TENANT.PersonID"
+        DATE StartDate
+        DATE EndDate
+        DECIMAL MonthlyRent
+        DECIMAL DepositAmount
+        VARCHAR Status
+        INT PropertyID FK
+        INT TenantID FK
+        INT AgentID FK "optional"
     }
-    PROPERTY ||--o{ LEASE : "1:N optional (LEASED_VIA)"
-    TENANT ||--o{ LEASE : "1:N mandatory (SIGNS)"
 
+    PROPERTY ||--o{ SALE : "sold via"
+    PERSON ||--o{ SALE : "buys"
+    AGENT |o--o{ SALE : "closed by (optional)"
+    SALE {
+        INT SaleID PK
+        DATE SaleDate
+        DECIMAL SalePrice
+        VARCHAR Status
+        INT PropertyID FK
+        INT BuyerID FK "-> PERSON"
+        INT AgentID FK "optional"
+    }
+
+    LEASE |o--o{ PAYMENT : "incurs"
+    SALE |o--o{ PAYMENT : "incurs"
     PAYMENT {
         INT PaymentID PK
-        DATE PaymentDate "NOT NULL"
-        DECIMAL(15_2) Amount "NOT NULL"
-        VARCHAR(50) PaymentType "CHECK(Rent, Deposit, Fine)"
-        VARCHAR(50) PaymentMethod 
-        INT LeaseID FK "-> LEASE.LeaseID"
+        DATE PaymentDate
+        DECIMAL Amount
+        VARCHAR PaymentType
+        VARCHAR PaymentMethod
+        INT LeaseID FK "nullable, XOR with SaleID"
+        INT SaleID FK "nullable, XOR with LeaseID"
     }
-    LEASE ||--o{ PAYMENT : "1:N optional (INCURS)"
 
+    PROPERTY ||--o{ MAINTENANCE_REQUEST : "reported on"
+    LEASE |o--o{ MAINTENANCE_REQUEST : "optionally tied to"
     MAINTENANCE_REQUEST {
         INT RequestID PK
-        TEXT Description "NOT NULL"
-        DATE ReportDate "NOT NULL"
-        DECIMAL(15_2) EstimatedCost 
-        DECIMAL(15_2) ActualCost 
-        VARCHAR(20) Status "CHECK(Pending, In_Progress, Resolved)"
-        INT LeaseID FK "-> LEASE.LeaseID"
+        TEXT Description
+        DATE ReportDate
+        DECIMAL EstimatedCost
+        DECIMAL ActualCost
+        VARCHAR Status
+        INT PropertyID FK
+        INT LeaseID FK "optional"
     }
-    LEASE ||--o{ MAINTENANCE_REQUEST : "1:N optional (SUBMITS)"
