@@ -1,4 +1,8 @@
-```mermaid erDiagram PERSON ||--o| OWNER : "overlapping ISA" PERSON ||--o| AGENT : "overlapping ISA" PERSON ||--o| TENANT : "overlapping ISA"
+```mermaid
+erDiagram
+PERSON ||--o| OWNER : "overlapping ISA"
+PERSON ||--o| AGENT : "overlapping ISA"
+PERSON ||--o| TENANT : "overlapping ISA"
 
 PERSON {
     int PersonID PK
